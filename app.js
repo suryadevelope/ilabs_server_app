@@ -4,17 +4,18 @@ const express = require('express');
 const http = require('http');
 const cors = require('cors'); // Import the cors middleware
 const { Server } = require("socket.io");
-
 const fs = require("fs");
 const path = require("path");
 const { cwd } = require('process');
 const { exec } = require('child_process');
+const bodyParser = require('body-parser');
 
 const app = express();
 
 
 app.use(express.json());
 app.use(cors());
+app.use(bodyParser.json());
 
 const server = http.createServer(app); // Create an HTTP server
 const io = new Server(server,{
@@ -34,74 +35,66 @@ app.get('/', (req, res) => {
 });
 
 app.post('/build_bin', (req, res) => {
+  console.log(req.body);
+  try {
+    const { content } = req.body;
 
-  var message = JSON.parse(req.body)
+    // Define the project name
+    const projectName = 'buildino';
 
-  
-  var projectName = "buildino";
-  var content = message.content||"hello";
+    // Create the folder and file paths
+    const folderPath = path.join(__dirname, 'sketch', projectName);
+    const filePath = path.join(folderPath, `${projectName}.ino`);
 
-     try {
-        const folderPath = path.join(cwd(), 'sketch', projectName);
-        const filePath = path.join(folderPath, projectName + '.ino');
-  
-        var runBuild = () => {
-          const child = exec(
-            `arduino-cli compile -b esp32:esp32:esp32 --export-binaries=true --output-dir=out/${projectName} ./sketch/${projectName}/${projectName}.ino`,
-          );
-          const progress = (data) => {
-            // io.emit('build_progress', data);
-          };
-          child.stdout.on('data', data => {
-            progress(data);
-          });
-  
-          child.stderr.on('data', data => {
-            progress(data);
-          });
-  
-          child.on('exit', (code, signal) => {
-            // the child process has exited
-            if (code === 0) {
-              const filepath = path.join(cwd(), 'out', projectName, projectName + '.ino.bin');
-              const buffer = fs.readFileSync(filepath);
-              // io.emit('build_success', 'Build Success', Array.from(buffer));
-             res.status(200).send(Array.from(buffer))
-              
-            } else {
-             res.status(400).send('Build Failed with code ' + code)
-            }
-          });
-          child.on('error', err => {
-            res.status(400).send(err)
-          });
-        };
-  
-        if (!fs.existsSync(folderPath)) {
-          fs.mkdirSync(folderPath, { recursive: true });
+    // Function to run the build process
+    const runBuild = () => {
+      const child = exec(
+        `arduino-cli compile -b esp32:esp32:esp32 --export-binaries=true --output-dir=out/${projectName} ./sketch/${projectName}/${projectName}.ino`
+      );
+
+      child.stdout.on('data', (data) => {
+        // Handle progress updates if needed
+      });
+
+      child.stderr.on('data', (data) => {
+        // Handle error messages if needed
+      });
+
+      child.on('exit', (code) => {
+        if (code === 0) {
+          // Read the binary file and send it as a response
+          const binaryFilePath = path.join(__dirname, 'out', projectName, `${projectName}.ino.bin`);
+          const binaryData = fs.readFileSync(binaryFilePath);
+
+          res.status(200).send(binaryData);
+        } else {
+          res.status(400).send(`Build Failed with code ${code}`);
         }
-  
-      //   if (!fs.existsSync(filePath)) {
-          fs.writeFile(filePath, content, err => {
-            if (err) {
-              res.status(400).send(err.message)
-            } else {
-              console.log('File created successfully');
-              runBuild();
-            }
-          });
-      //   } else {
-      //     runBuild();
-  
-      //     console.log('File already exists');
-      //   }
-      } catch (e) {
-        console.log(e);
-  res.status(400).send(e.message) // Create an HTML file for the WebSocket client
+      });
 
+      child.on('error', (err) => {
+        res.status(400).send(err.message);
+      });
+    };
+
+    // Create the project folder if it doesn't exist
+    if (!fs.existsSync(folderPath)) {
+      fs.mkdirSync(folderPath, { recursive: true });
+    }
+
+    // Write the content to the .ino file
+    fs.writeFile(filePath, content, (err) => {
+      if (err) {
+        res.status(400).send(err.message);
+      } else {
+        console.log('File created successfully');
+        runBuild();
       }
-    
-
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(400).send(e.message);
+  }
 });
 
 
