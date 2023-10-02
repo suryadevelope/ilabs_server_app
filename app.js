@@ -34,72 +34,6 @@ app.get('/', (req, res) => {
   res.status(200).send("Ilabs server is up and running....") // Create an HTML file for the WebSocket client
 });
 
-app.post('/build_bin', (req, res) => {
-  console.log(req.body);
-  try {
-    const { content } = req.body;
-
-    // Define the project name
-    const projectName = 'buildino';
-
-    // Create the folder and file paths
-    const folderPath = path.join(__dirname, 'sketch', projectName);
-    const filePath = path.join(folderPath, `${projectName}.ino`);
-
-    // Function to run the build process
-    const runBuild = () => {
-      const child = exec(
-        `arduino-cli compile -b esp32:esp32:esp32 --export-binaries=true --output-dir=out/${projectName} ./sketch/${projectName}/${projectName}.ino`
-      );
-
-      child.stdout.on('data', (data) => {
-        // Handle progress updates if needed
-      });
-
-      child.stderr.on('data', (data) => {
-        // Handle error messages if needed
-      });
-
-      child.on('exit', (code) => {
-        if (code === 0) {
-          // Read the binary file and send it as a response
-          const binaryFilePath = path.join(__dirname, 'out', projectName, `${projectName}.ino.bin`);
-          const binaryData = fs.readFileSync(binaryFilePath);
-
-          res.status(200).send(binaryData);
-        } else {
-          res.status(400).send(`Build Failed with code ${code}`);
-        }
-      });
-
-      child.on('error', (err) => {
-        res.status(400).send(err.message);
-      });
-    };
-
-    // Create the project folder if it doesn't exist
-    if (!fs.existsSync(folderPath)) {
-      fs.mkdirSync(folderPath, { recursive: true });
-    }
-
-    // Write the content to the .ino file
-    fs.writeFile(filePath, content, (err) => {
-      if (err) {
-        res.status(400).send(err.message);
-      } else {
-        console.log('File created successfully');
-        runBuild();
-      }
-    });
-  } catch (e) {
-    console.error(e);
-    res.status(400).send(e.message);
-  }
-});
-
-
-
-
 
 io.on('connection', (socket) => {
   console.log('A user connected');
@@ -117,7 +51,7 @@ io.on('connection', (socket) => {
     
           var runBuild = () => {
             const child = exec(
-              `arduino-cli compile -b esp32:esp32:esp32 --export-binaries=true --output-dir=out/${projectName} ./sketch/${projectName}/${projectName}.ino`,
+              `arduino-cli compile -b esp8266:esp8266:nodemcuv2 --export-binaries=true --output-dir=out/${projectName} ./sketch/${projectName}/${projectName}.ino`,
             );
             const progress = (data) => {
               io.emit('build_progress', data);
