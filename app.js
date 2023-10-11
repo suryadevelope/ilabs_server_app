@@ -51,7 +51,7 @@ io.on('connection', (socket) => {
     
           var runBuild = () => {
             const child = exec(
-              `arduino-cli compile -b esp8266:esp8266:generic --export-binaries=true --output-dir=out/${projectName} ./sketch/${projectName}/${projectName}.ino`,
+              `arduino-cli compile -b esp8266:esp8266:nodemcuv2 --export-binaries=true --verbose --output-dir=out/${projectName} ./sketch/${projectName}/${projectName}.ino`,
             );
             const progress = (data) => {
               io.emit('build_progress', data);
